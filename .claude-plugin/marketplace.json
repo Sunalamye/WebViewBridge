@@ -1,0 +1,22 @@
+{
+  "name": "webviewbridge-skills",
+  "owner": {
+    "name": "WebViewBridge",
+    "email": "sunalamye@pm.me"
+  },
+  "metadata": {
+    "description": "Skills for WebViewBridge Swift package - WebPage bidirectional communication framework",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "webviewbridge-guide",
+      "description": "Guide for WebPage (macOS 26.0+) bidirectional communication with JavaScript injection. Use when integrating WebPage with Swift, injecting JavaScript, or handling JS↔Swift messaging.",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/webviewbridge-guide"
+      ]
+    }
+  ]
+}
