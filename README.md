@@ -1,5 +1,10 @@
 # WebViewBridge
 
+[![Swift](https://img.shields.io/badge/Swift-5.9+-orange.svg)](https://swift.org)
+[![Platform](https://img.shields.io/badge/Platform-macOS%2026.0+-blue.svg)](https://developer.apple.com/macos/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/Version-0.1.0-red.svg)](https://github.com/Sunalamye/WebViewBridge/releases)
+
 Swift 實現的 WebPage 雙向通訊框架（macOS 26.0+），提供 JavaScript 注入、訊息處理和 WebSocket 攔截功能。
 
 ## 特點
@@ -17,7 +22,7 @@ Swift 實現的 WebPage 雙向通訊框架（macOS 26.0+），提供 JavaScript 
 
 ```swift
 dependencies: [
-    .package(path: "../Packages/WebViewBridge")
+    .package(url: "https://github.com/Sunalamye/WebViewBridge.git", from: "0.1.0")
 ]
 ```
 
@@ -114,11 +119,18 @@ window.__bridgeCore.installWebSocketInterceptor({
 
 ```
 WebViewBridge/
-├── Core/
-│   └── WebViewBridge.swift     # 主要橋接類
-├── JavaScript/
-│   └── bridge-core.js          # 核心 JS 模組
-└── WebViewBridge.swift         # 版本資訊
+├── Sources/
+│   └── WebViewBridge/
+│       ├── Core/
+│       │   └── WebViewBridge.swift     # 主要橋接類
+│       ├── JavaScript/
+│       │   └── bridge-core.js          # 核心 JS 模組
+│       └── WebViewBridgeKit.swift      # 版本資訊
+├── Tests/
+│   └── WebViewBridgeTests/
+└── skills/                              # Claude Code Skills
+    └── skills/
+        └── webviewbridge-guide/
 ```
 
 ## JavaScript API
@@ -127,12 +139,11 @@ WebViewBridge/
 
 | 方法 | 說明 |
 |------|------|
-| `configure(options)` | 設定配置 |
+| `sendToSwift(type, data)` | 發送訊息到 Swift |
+| `log(message)` | 發送日誌 |
 | `arrayBufferToBase64(buffer)` | ArrayBuffer 轉 Base64 |
 | `base64ToArrayBuffer(base64)` | Base64 轉 ArrayBuffer |
 | `blobToBase64(blob, callback)` | Blob 轉 Base64 |
-| `sendToSwift(type, data)` | 發送訊息到 Swift |
-| `log(message)` | 發送日誌 |
 | `installWebSocketInterceptor(options)` | 安裝 WebSocket 攔截器 |
 
 ## Swift API
@@ -172,7 +183,17 @@ WebViewBridge/
 | `websocket_closed` | JS → Swift | WebSocket 已關閉 |
 | `websocket_error` | JS → Swift | WebSocket 錯誤 |
 | `console_log` | JS → Swift | 日誌訊息 |
-| `interceptor_ready` | JS → Swift | 攔截器已就緒 |
+
+## Claude Code Skills
+
+本 package 包含 Claude Code skills，可用於輔助開發：
+
+```
+skills/skills/webviewbridge-guide/
+├── SKILL.md           # 使用指南
+└── references/
+    └── reference.md   # 完整 API 參考
+```
 
 ## License
 
