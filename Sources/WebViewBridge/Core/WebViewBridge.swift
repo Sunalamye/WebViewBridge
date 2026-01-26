@@ -14,7 +14,7 @@ import WebKit
 // MARK: - Bridge Delegate
 
 /// WebView 橋接代理協議
-@available(macOS 26.0, *)
+@available(macOS 26.0, iOS 26.0, *)
 public protocol WebViewBridgeDelegate: AnyObject {
     /// 收到 JavaScript 訊息
     func bridge(_ bridge: WebViewBridge, didReceiveMessage type: String, data: [String: Any])
@@ -27,7 +27,7 @@ public protocol WebViewBridgeDelegate: AnyObject {
 }
 
 // 提供可選方法的預設實現
-@available(macOS 26.0, *)
+@available(macOS 26.0, iOS 26.0, *)
 public extension WebViewBridgeDelegate {
     func bridge(_ bridge: WebViewBridge, webSocketStatusChanged connected: Bool) {}
     func bridge(_ bridge: WebViewBridge, didEncounterError error: Error) {}
@@ -80,7 +80,7 @@ public struct JavaScriptModule: Sendable {
 // MARK: - WebPage Bridge
 
 /// WebPage 雙向通訊橋接器 (macOS 26.0+)
-@available(macOS 26.0, *)
+@available(macOS 26.0, iOS 26.0, *)
 @MainActor
 public final class WebViewBridge: NSObject {
 
@@ -270,7 +270,7 @@ public enum WebViewBridgeError: LocalizedError {
 
 // MARK: - WKScriptMessageHandler
 
-@available(macOS 26.0, *)
+@available(macOS 26.0, iOS 26.0, *)
 extension WebViewBridge: WKScriptMessageHandler {
     nonisolated public func userContentController(
         _ userContentController: WKUserContentController,
