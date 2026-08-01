@@ -1,200 +1,193 @@
 # WebViewBridge
 
+[![Version](https://img.shields.io/badge/version-0.2.0-blue.svg)](https://github.com/Sunalamye/WebViewBridge/releases)
 [![Swift](https://img.shields.io/badge/Swift-5.9+-orange.svg)](https://swift.org)
-[![Platform](https://img.shields.io/badge/Platform-macOS%2026.0+-blue.svg)](https://developer.apple.com/macos/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-0.1.0-red.svg)](https://github.com/Sunalamye/WebViewBridge/releases)
+[![Platform](https://img.shields.io/badge/platform-macOS%2014%2B%20%7C%20iOS%2017%2B-lightgrey.svg)](https://developer.apple.com/macos/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-Swift 實現的 WebPage 雙向通訊框架（macOS 26.0+），提供 JavaScript 注入、訊息處理和 WebSocket 攔截功能。
+Swift 與網頁的雙向通訊橋接層：**JavaScript 模組注入、訊息回傳、WebSocket 攔截**。
 
-## 特點
+---
 
-- 🌉 **雙向通訊** - Swift 與 JavaScript 無縫通訊
-- 📦 **模組化 JS** - 支援多個 JavaScript 模組註冊和注入
-- 🔌 **WebSocket 攔截** - 可選的 WebSocket 訊息攔截
-- 🎯 **型別安全** - 完整的 Swift 型別支援
-- 🧪 **可測試** - 易於單元測試的設計
-- 🍎 **WebPage API** - 專為 macOS 26.0+ WebPage API 設計
+## ⚠️ 兩個版本門檻不一樣
+
+這件事容易搞混，先講清楚：
+
+| | 版本 |
+|---|---|
+| **套件可以被加進去** | macOS 14+ / iOS 17+ |
+| **`WebViewBridge` 這個型別可以用** | **macOS 26+ / iOS 26+** |
+
+套件本身的部署目標是 14/17，所以**你的 App 只要 14+ 就能把它列為依賴**，
+不會被迫整包升上去。但橋接器是建立在 `WebPage` API 上的，
+那個 API 只有 26 才有，所以實際使用要包在 `@available` 裡。
+
+如果你的 App 需要在 26 以下也能運作，得自己準備 `WKWebView` 的替代路徑。
+
+---
 
 ## 安裝
 
-### Swift Package Manager
-
 ```swift
 dependencies: [
-    .package(url: "https://github.com/Sunalamye/WebViewBridge.git", from: "0.1.0")
+    .package(url: "https://github.com/Sunalamye/WebViewBridge.git", from: "0.2.0")
 ]
 ```
 
-## 快速開始
+---
 
-### 1. 創建 Bridge
+## 快速開始
 
 ```swift
 import WebViewBridge
 import WebKit
 
-@available(macOS 26.0, *)
+@available(macOS 26.0, iOS 26.0, *)
 @MainActor
-class MyViewController: NSViewController {
+final class MyController {
     let bridge = WebViewBridge(handlerName: "myBridge")
     var webPage: WebPage?
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-
-        // 註冊核心模組
+    func setUp() {
+        // 內建模組（sendToSwift、WebSocket 攔截器等）
         bridge.registerCoreModules()
 
-        // 註冊自定義模組
-        let myModule = JavaScriptModule(
+        // 自己的模組
+        bridge.registerModule(JavaScriptModule(
             name: "my-module",
             source: """
                 window.myApp = {
-                    sendMessage: function(msg) {
+                    send(msg) {
                         window.__bridgeCore.sendToSwift('custom_message', { message: msg });
                     }
                 };
-            """
-        )
-        bridge.registerModule(myModule)
+            """))
 
-        // 設置訊息回調
         bridge.onMessage = { type, data in
-            print("Received: \(type) - \(data)")
+            print("收到：\(type) — \(data)")
         }
 
-        // 配置 WebPage
         var configuration = WebPage.Configuration()
-        let userContentController = WKUserContentController()
-        bridge.configure(contentController: userContentController)
-        configuration.userContentController = userContentController
+        let controller = WKUserContentController()
+        bridge.configure(contentController: controller)
+        configuration.userContentController = controller
 
-        // 創建 WebPage
         webPage = WebPage(configuration: configuration)
         bridge.configure(webPage: webPage!)
     }
 }
 ```
 
-### 2. 從 JavaScript 發送訊息
+### JavaScript → Swift
 
 ```javascript
-// 使用 bridge-core.js 提供的 API
 window.__bridgeCore.sendToSwift('my_event', { key: 'value' });
-
-// 或使用自定義 API
-window.myApp.sendMessage('Hello from JavaScript!');
 ```
 
-### 3. 從 Swift 執行 JavaScript
+### Swift → JavaScript
 
 ```swift
-Task {
-    // ⚠️ WebPage.callJavaScript 需要函數體格式，必須使用 return
-    let result = try await bridge.callJavaScript(
-        "return document.title"  // 注意：需要 return
-    )
-    print("Page title: \(result ?? "unknown")")
-}
+let title = try await bridge.callJavaScript("return document.title")
 ```
 
-> **重要**：
-> - `WebPage.callJavaScript()` - 期望函數體格式，需使用 `return` 語句
-> - ❌ `"document.title"` → 返回 null
-> - ✅ `"return document.title"` → 返回實際標題
+> ### ⚠️ 必須寫 `return`
+>
+> `WebPage.callJavaScript()` 收的是**函式主體**，不是運算式。
+>
+> - ❌ `"document.title"` → 回傳 `null`
+> - ✅ `"return document.title"` → 回傳實際標題
+>
+> 這是最常踩的坑，而且不會報錯，只會靜默拿到 `null`。
 
-### 4. 攔截 WebSocket
+### 攔截 WebSocket
 
 ```javascript
-// 在你的 JavaScript 模組中
 window.__bridgeCore.installWebSocketInterceptor({
-    shouldIntercept: function(url) {
-        return url.includes('your-api.com');
-    }
+    shouldIntercept: (url) => url.includes('your-api.com')
 });
 ```
 
-## 架構
+攔截到的訊息會以 `websocket_message` 型別送到 Swift 端的 `onMessage`。
+
+---
+
+## 結構
 
 ```
-WebViewBridge/
-├── Sources/
-│   └── WebViewBridge/
-│       ├── Core/
-│       │   └── WebViewBridge.swift     # 主要橋接類
-│       ├── JavaScript/
-│       │   └── bridge-core.js          # 核心 JS 模組
-│       └── WebViewBridgeKit.swift      # 版本資訊
-├── Tests/
-│   └── WebViewBridgeTests/
-└── skills/                              # Claude Code Skills
-    └── skills/
-        └── webviewbridge-guide/
+Sources/WebViewBridge/
+├── Core/
+│   └── WebViewBridge.swift    橋接器本體
+├── JavaScript/
+│   └── bridge-core.js         內建 JS 模組
+└── WebViewBridgeKit.swift     版本資訊
 ```
 
-## JavaScript API
+---
 
-### bridge-core.js
-
-| 方法 | 說明 |
-|------|------|
-| `sendToSwift(type, data)` | 發送訊息到 Swift |
-| `log(message)` | 發送日誌 |
-| `arrayBufferToBase64(buffer)` | ArrayBuffer 轉 Base64 |
-| `base64ToArrayBuffer(base64)` | Base64 轉 ArrayBuffer |
-| `blobToBase64(blob, callback)` | Blob 轉 Base64 |
-| `installWebSocketInterceptor(options)` | 安裝 WebSocket 攔截器 |
-
-## Swift API
+## API
 
 ### WebViewBridge
 
-| 屬性/方法 | 說明 |
-|----------|------|
+| 成員 | 說明 |
+|------|------|
 | `handlerName` | 訊息處理器名稱 |
 | `delegate` | 代理 |
-| `onMessage` | 訊息回調 |
+| `onMessage` | 訊息回呼 `(type, data) -> Void` |
 | `registerModule(_:)` | 註冊 JS 模組 |
 | `registerCoreModules()` | 註冊內建模組 |
-| `configure(webPage:)` | 配置 WebPage 實例 |
-| `configure(contentController:)` | 配置 WKUserContentController |
-| `callJavaScript(_:)` | 執行 JavaScript（需要 return 語句） |
-| `isWebSocketConnected` | WebSocket 連接狀態 |
+| `configure(webPage:)` | 綁定 `WebPage` 實例 |
+| `configure(contentController:)` | 綁定 `WKUserContentController` |
+| `callJavaScript(_:)` | 執行 JS（**要寫 `return`**） |
+| `isWebSocketConnected` | WebSocket 連線狀態 |
 
 ### JavaScriptModule
 
 | 屬性 | 說明 |
 |-----|------|
 | `name` | 模組名稱 |
-| `source` | JavaScript 代碼 |
-| `injectAtStart` | 是否在文檔開始時注入 |
-| `mainFrameOnly` | 是否僅主框架注入 |
+| `source` | JavaScript 原始碼 |
+| `injectAtStart` | 是否在文件開始時注入 |
+| `mainFrameOnly` | 是否只注入主框架 |
 
-## 訊息類型
+### bridge-core.js
 
-內建支援的訊息類型：
+| 方法 | 說明 |
+|------|------|
+| `sendToSwift(type, data)` | 送訊息到 Swift |
+| `log(message)` | 送日誌 |
+| `arrayBufferToBase64(buffer)` | ArrayBuffer → Base64 |
+| `base64ToArrayBuffer(base64)` | Base64 → ArrayBuffer |
+| `blobToBase64(blob, callback)` | Blob → Base64 |
+| `installWebSocketInterceptor(options)` | 安裝 WebSocket 攔截器 |
 
-| 類型 | 方向 | 說明 |
-|------|------|------|
-| `websocket_open` | JS → Swift | WebSocket 開始連接 |
-| `websocket_connected` | JS → Swift | WebSocket 已連接 |
-| `websocket_message` | JS → Swift | WebSocket 訊息 |
-| `websocket_closed` | JS → Swift | WebSocket 已關閉 |
-| `websocket_error` | JS → Swift | WebSocket 錯誤 |
-| `console_log` | JS → Swift | 日誌訊息 |
+### 內建訊息型別
 
-## Claude Code Skills
+全部是 JS → Swift 方向：
 
-本 package 包含 Claude Code skills，可用於輔助開發：
+| 型別 | 說明 |
+|------|------|
+| `websocket_open` | 開始連線 |
+| `websocket_connected` | 已連線 |
+| `websocket_message` | 收到訊息 |
+| `websocket_closed` | 已關閉 |
+| `websocket_error` | 發生錯誤 |
+| `console_log` | 日誌訊息 |
 
-```
-skills/skills/webviewbridge-guide/
-├── SKILL.md           # 使用指南
-└── references/
-    └── reference.md   # 完整 API 參考
-```
+---
+
+## 更新日誌
+
+### v0.2.0
+
+- 部署目標降到 macOS 14 / iOS 17（`WebViewBridge` 型別本身仍需 26+）
+- 升級到 Swift 6.2
+
+### v0.1.x
+
+- 初始版本
+
+---
 
 ## License
 
-MIT License
+[MIT](LICENSE)

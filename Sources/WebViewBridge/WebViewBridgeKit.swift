@@ -11,5 +11,5 @@ import Foundation
 
 /// WebViewBridge 版本資訊
 public enum WebViewBridgeInfo {
-    public static let version = "1.0.0"
+    public static let version = "0.2.0"
 }
